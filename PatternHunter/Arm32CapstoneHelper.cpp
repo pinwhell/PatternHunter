@@ -148,6 +148,40 @@ bool Arm32CapstoneHelper::IsIntructionPrologRelated(cs_insn* pInst)
     return ArmCapstoneAux::HeuristicProlog(pInst);
 }
 
+#define MKWILDCARD(type, ...) {type, { __VA_ARGS__ }},
+
+std::unordered_map<arm_insn, WildcardTechnique> gImmDispWilcarding{
+    MKWILDCARD(ARM_INS_SUB, 0)
+    MKWILDCARD(ARM_INS_MOVW, 0, 1, 2)
+    MKWILDCARD(ARM_INS_BL, 0, 1, 2)
+    MKWILDCARD(ARM_INS_LDR, 0, 1)
+    MKWILDCARD(ARM_INS_STR, 0, 1)
+};
+
+std::unordered_map<arm_insn, WildcardTechnique> gRegWilcarding{
+    MKWILDCARD(ARM_INS_SUB, 1, 2)
+    MKWILDCARD(ARM_INS_MOVW, 1)
+    MKWILDCARD(ARM_INS_BL)
+    MKWILDCARD(ARM_INS_LDR, 1, 2)
+    MKWILDCARD(ARM_INS_STR, 1, 2)
+};
+
+WildcardTechnique GetImmDispWildcardTechArmIsnt(arm_insn type)
+{
+    if (gImmDispWilcarding.find(type) == gImmDispWilcarding.end())
+        return WildcardTechnique();
+
+    return gImmDispWilcarding[type];
+}
+
+WildcardTechnique GetRegWildcardTechArmIsnt(arm_insn type)
+{
+    if (gRegWilcarding.find(type) == gRegWilcarding.end())
+        return WildcardTechnique();
+
+    return gRegWilcarding[type];
+}
+
 bool Arm32CapstoneHelper::ContainsNonSolidOp(cs_insn* pInst, uint32_t* outResult, uint32_t toIgnoreNonSolidFlag, InstructionWildcardStrategy* pInstWildcardStrategy)
 {
     cs_arm* pArmInst = &(pInst->detail->arm);
@@ -159,45 +193,50 @@ bool Arm32CapstoneHelper::ContainsNonSolidOp(cs_insn* pInst, uint32_t* outResult
         pInstWildcardStrategy->mSize = pInst->size;
     }
 
-
-
     if (pArmInst->op_count < 1)
         return false;
 
-    bool hasNonSolid = false;
+    uint32_t alredyFoundNonSolid = 0;
 
     for (int i = 0; i < pArmInst->op_count; i++)
     {
         cs_arm_op* currOp = pArmInst->operands + i;
 
-        if (toIgnoreNonSolidFlag & NS_IMM)
+        /*If called want to check for given nonsolid, and it hasnt alredy been found*/
+        if ((toIgnoreNonSolidFlag & NS_IMMDISP) && ((alredyFoundNonSolid & NS_IMMDISP) == 0))
         {
-            switch (currOp->type)
-            {
-            case ARM_OP_MEM:
-                if (currOp->mem.disp == 0)
+            do {
+
+                if ((currOp->type == ARM_OP_MEM && currOp->mem.disp != 0 ||
+                    currOp->type == ARM_OP_IMM) == false)
                     break;
+                
+                alredyFoundNonSolid |= NS_IMMDISP;
 
-            case ARM_OP_IMM:
-                if (outResult)
-                    *outResult |= NS_IMM;
+                if (pInstWildcardStrategy)
+                    pInstWildcardStrategy->mTechnique += GetImmDispWildcardTechArmIsnt((arm_insn)pInst->id);
 
-                hasNonSolid = true;
-                break;
-            }
+                continue;
+            } while (false);
         }
 
-        if (toIgnoreNonSolidFlag & NS_REG)
+        /*If called want to check for given nonsolid, and it hasnt alredy been found*/
+        if ((toIgnoreNonSolidFlag & NS_REG) && ((alredyFoundNonSolid & NS_REG) == 0))
         {
             if (currOp->type == ARM_OP_REG)
             {
-                if (outResult)
-                    *outResult |= NS_REG;
+                alredyFoundNonSolid |= NS_REG;
 
-                hasNonSolid = true;
+                if (pInstWildcardStrategy)
+                    pInstWildcardStrategy->mTechnique += GetRegWildcardTechArmIsnt((arm_insn)pInst->id);
+
+                continue;
             }
         }
     }
 
-    return hasNonSolid;
+    if (outResult)
+        *outResult = alredyFoundNonSolid;
+
+    return alredyFoundNonSolid != 0;
 }

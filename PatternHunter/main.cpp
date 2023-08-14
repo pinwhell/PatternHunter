@@ -5,6 +5,21 @@
 #include "BinaryFormatClassifier.h"
 #include "FileHelper.h"
 #include <iomanip>
+#include <sstream>
+
+class PatternGeneration {
+public:
+
+	void setPatternBuff(const unsigned char* mPatternEntry, size_t patternSize);
+	void setInstWildcardDescBook(InstructionSequenceWildcardBook& book);
+
+	std::string GenerateCLiteralPattern();
+	std::string GeneratePatternMask();
+	std::string GeneratePatternWithMask();
+private:
+	std::vector<unsigned char> mPatternBuff;
+	InstructionSequenceWildcardBook mInstWildcardDescBook;
+};
 
 int main(int argc, const char* argv[])
 {
@@ -77,7 +92,7 @@ int main(int argc, const char* argv[])
 
 	InstructionWildcardStrategy currInsWildcardStrategy;
 
-	bool bIsNotSolidInst = binCapstoneHelper->ContainsNonSolidOp(pInst, &foundNonSolid, NS_IMM, &currInsWildcardStrategy);
+	bool bIsNotSolidInst = binCapstoneHelper->ContainsNonSolidOp(pInst, &foundNonSolid, NS_IMMDISP, &currInsWildcardStrategy);
 
 	if (bIsNotSolidInst == true)
 	{
@@ -88,9 +103,7 @@ int main(int argc, const char* argv[])
 	std::cout << "0x" << std::hex << pInst->address - (uint64_t)file.data() << ": " << std::left << std::setw(6) << pInst->mnemonic << " " << std::left << std::setw(18) << pInst->op_str;
 
 	if (bIsNotSolidInst == true)
-	{
 		std::cout << currInsWildcardStrategy;
-	}
 
 	std::cout << std::endl;
 
@@ -101,5 +114,84 @@ int main(int argc, const char* argv[])
 
 	std::cout << "Full Pattern Size: 0x" << std::hex << totalPatternSize << std::endl;
 
+	PatternGeneration patternGeneration;
+
+	patternGeneration.setPatternBuff(file.data() + offset, totalPatternSize);
+	patternGeneration.setInstWildcardDescBook(wildcardBook);
+
+	//std::cout << patternGeneration.GenerateCLiteralPattern() << std::endl;
+	//std::cout << patternGeneration.GeneratePatternMask() << std::endl;
+	std::cout << patternGeneration.GeneratePatternWithMask() << std::endl;
+
 	return 0;
+}
+
+void PatternGeneration::setPatternBuff(const unsigned char* mPatternEntry, size_t patternSize)
+{
+	mPatternBuff = std::vector<unsigned char>(mPatternEntry, mPatternEntry + patternSize);
+}
+
+void PatternGeneration::setInstWildcardDescBook(InstructionSequenceWildcardBook& book)
+{
+	mInstWildcardDescBook = book;
+}
+
+std::string ByteToByteStr(unsigned char byte)
+{
+	std::stringstream ss;
+
+	ss << std::uppercase << std::setw(2) << std::setfill('0') << std::hex << (size_t)byte;
+
+	return ss.str();
+}
+
+std::string PatternGeneration::GenerateCLiteralPattern()
+{
+	if (mPatternBuff.size() < 1)
+		return "";
+
+	std::string result = "";
+
+	for (int i = 0; i < mPatternBuff.size(); i++)
+	{
+		result += "\\x" + (mInstWildcardDescBook.IsOffsetWildcard(i) ? "00" : ByteToByteStr(mPatternBuff[i]));
+	}
+
+	return result;
+}
+
+std::string PatternGeneration::GeneratePatternMask()
+{
+	if (mPatternBuff.size() < 1)
+		return "";
+
+	std::string mask(mPatternBuff.size(), 'x');
+
+	for (const auto& instWildcardDesc : mInstWildcardDescBook.mBook)
+	{
+		for (size_t instWildcardOff : instWildcardDesc.mTechnique.mWildcardedOffsets)
+		{
+			mask[instWildcardDesc.mOffset + instWildcardOff] = '?';
+		}
+	}
+
+	return mask;
+}
+
+std::string PatternGeneration::GeneratePatternWithMask()
+{
+	if (mPatternBuff.size() < 1)
+		return "";
+
+	std::string result = "";
+
+	for (int i = 0; i < mPatternBuff.size(); i++)
+	{
+		result += (mInstWildcardDescBook.IsOffsetWildcard(i) ? "?" : ByteToByteStr(mPatternBuff[i]));
+
+		if (i + 1 < mPatternBuff.size())
+			result += " ";
+	}
+
+	return result;
 }

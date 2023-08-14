@@ -6,7 +6,7 @@
 #include <vector>
 #include <ostream>
 
-#define NS_IMM (1 << 1)
+#define NS_IMMDISP (1 << 1)
 #define NS_REG  (1 << 2)
 
 struct WildcardTechnique {
@@ -17,8 +17,13 @@ struct WildcardTechnique {
 	/*Ex. you may want to combine a NS_IMM Wildcardding with a NS_REG wildcarding*/
 	WildcardTechnique operator+(const WildcardTechnique& rhs);
 
+	WildcardTechnique();
+	WildcardTechnique(std::initializer_list<uint64_t> initList);
+
 	/*Combine another technique with us*/
 	void operator+=(const WildcardTechnique& rhs);
+
+	bool IsOffsetWildcard(size_t offset) const;
 };
 
 struct InstructionWildcardStrategy {
@@ -35,6 +40,8 @@ struct InstructionWildcardStrategy {
 struct InstructionSequenceWildcardBook {
 	/*A list of description of instruction wildcarding methods*/
 	std::vector<InstructionWildcardStrategy> mBook;
+
+	bool IsOffsetWildcard(size_t offset);
 };
 
 std::ostream& operator<<(std::ostream& os, const InstructionWildcardStrategy& instWildcardingStrat);
@@ -81,6 +88,6 @@ public:
 	void ForEachInstructionAbs(const unsigned char* startAt, std::function<bool(cs_insn* pInst)> callback);
 	void ForEachInstructionRel(uint64_t baseOffset, std::function<bool(cs_insn* pInst)> callback);
 
-	virtual bool ContainsNonSolidOp(cs_insn* pInst, uint32_t* outResult = nullptr, uint32_t toIgnoreNonSolidFlag = NS_IMM, InstructionWildcardStrategy* pInstructionWildcard = nullptr);
+	virtual bool ContainsNonSolidOp(cs_insn* pInst, uint32_t* outResult = nullptr, uint32_t toIgnoreNonSolidFlag = NS_IMMDISP, InstructionWildcardStrategy* pInstructionWildcard = nullptr);
 };
 

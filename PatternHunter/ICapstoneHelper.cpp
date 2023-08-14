@@ -162,10 +162,21 @@ WildcardTechnique WildcardTechnique::operator+(const WildcardTechnique& rhs)
     return result;
 }
 
+WildcardTechnique::WildcardTechnique()
+{
+}
+
+WildcardTechnique::WildcardTechnique(std::initializer_list<uint64_t> initList) : mWildcardedOffsets(initList) {}
+
 void WildcardTechnique::operator+=(const WildcardTechnique& rhs)
 {
     for (auto curr : rhs.mWildcardedOffsets)
         mWildcardedOffsets.insert(curr);
+}
+
+bool WildcardTechnique::IsOffsetWildcard(size_t offset) const 
+{
+    return mWildcardedOffsets.count(offset) > 0;
 }
 
 std::ostream& operator<<(std::ostream& os, const InstructionWildcardStrategy& instWildcardingStrat) {
@@ -187,4 +198,17 @@ std::ostream& operator<<(std::ostream& os, const InstructionWildcardStrategy& in
     os << "}";
 
     return os;
+}
+
+bool InstructionSequenceWildcardBook::IsOffsetWildcard(size_t offset)
+{
+    for (const auto& instWildcardDesc : mBook)
+    {
+        if (instWildcardDesc.mOffset - offset < instWildcardDesc.mSize)
+        {
+            if (instWildcardDesc.mTechnique.IsOffsetWildcard(instWildcardDesc.mOffset - offset) == true)
+                return true;
+        }
+    }
+    return false;
 }
