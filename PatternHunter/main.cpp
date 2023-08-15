@@ -101,6 +101,10 @@ int main(int argc, const char* argv[])
 	if (bIsNotSolidInst == true)
 	{
 		currInsWildcardStrategy.mOffset = totalPatternSize;
+
+		if (currInsWildcardStrategy.mTechnique.mWildcardedOffsets.size() == 0)
+			std::cout << "\'" << pInst->mnemonic << "\'" << " Potentially Unimplemented\n";
+
 		wildcardBook.mBook.push_back(currInsWildcardStrategy);
 	}
 
