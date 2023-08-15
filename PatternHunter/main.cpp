@@ -6,6 +6,7 @@
 #include "FileHelper.h"
 #include <iomanip>
 #include <sstream>
+#include <ThunderByteScan.hpp>
 
 class PatternGeneration {
 public:
@@ -30,7 +31,8 @@ int main(int argc, const char* argv[])
 	options.add_options()
 		("f,file", "File to perform the pattern creation at", cxxopts::value<std::string>())
 		("o,offset", "File offset at which the pattern creation will be performed", cxxopts::value<uint64_t>())
-		("i,instructions", "Ammount of instruciton to process in the pattern creation", cxxopts::value<uint64_t>());
+		("i,instructions", "Ammount of instruciton to process in the pattern creation", cxxopts::value<uint64_t>())
+		("v,verbose", "Show more Info", cxxopts::value<bool>()->default_value("false"));
 
 	auto result = options.parse(argc, argv);
 
@@ -41,6 +43,8 @@ int main(int argc, const char* argv[])
 		std::cout << options.help() << std::endl;
 		return 1;
 	}
+
+	bool bVerbose = result["verbose"].as<bool>();
 
 	std::vector<unsigned char> file;
 
@@ -100,19 +104,22 @@ int main(int argc, const char* argv[])
 		wildcardBook.mBook.push_back(currInsWildcardStrategy);
 	}
 
-	std::cout << "0x" << std::hex << pInst->address - (uint64_t)file.data() << ": " << std::left << std::setw(6) << pInst->mnemonic << " " << std::left << std::setw(18) << pInst->op_str;
+	if(bVerbose)
+		std::cout << "0x" << std::hex << pInst->address - (uint64_t)file.data() << ": " << std::left << std::setw(6) << pInst->mnemonic << " " << std::left << std::setw(18) << pInst->op_str;
 
-	if (bIsNotSolidInst == true)
+	if (bIsNotSolidInst == true && bVerbose)
 		std::cout << currInsWildcardStrategy;
 
-	std::cout << std::endl;
+	if(bVerbose)
+		std::cout << std::endl;
 
 	totalPatternSize += pInst->size;
 
 	return binCapstoneHelper->IsIntructionReturnRelated(pInst) == false;
 		});
 
-	std::cout << "Full Pattern Size: 0x" << std::hex << totalPatternSize << std::endl;
+	if(bVerbose)
+		std::cout << "Full Pattern Size: 0x" << std::hex << totalPatternSize << std::endl;
 
 	PatternGeneration patternGeneration;
 
@@ -121,7 +128,23 @@ int main(int argc, const char* argv[])
 
 	//std::cout << patternGeneration.GenerateCLiteralPattern() << std::endl;
 	//std::cout << patternGeneration.GeneratePatternMask() << std::endl;
-	std::cout << patternGeneration.GeneratePatternWithMask() << std::endl;
+
+	std::string patternResult = patternGeneration.GeneratePatternWithMask();
+
+	std::vector<uintptr_t> resultScan;
+
+	std::cout << patternResult << std::endl;
+
+	std::cout << "Checking Uniqueness...\n";
+
+	ThunderByteScan::LocalFindPattern(patternResult, (uintptr_t)file.data(), (uintptr_t)(file.data() + file.size()), resultScan);
+
+	if(resultScan.size() < 1)
+		std::cout << "Pattern Not Found\n";
+	else if(resultScan.size() > 1)
+		std::cout << "Pattern With " << resultScan.size() << " Results\n";
+	else
+		std::cout << "Pattern Unique!\n";
 
 	return 0;
 }
