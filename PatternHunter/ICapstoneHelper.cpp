@@ -204,9 +204,9 @@ bool InstructionSequenceWildcardBook::IsOffsetWildcard(size_t offset)
 {
     for (const auto& instWildcardDesc : mBook)
     {
-        if (instWildcardDesc.mOffset - offset < instWildcardDesc.mSize)
+        if (offset >= instWildcardDesc.mOffset && offset < instWildcardDesc.mOffset + instWildcardDesc.mSize)
         {
-            if (instWildcardDesc.mTechnique.IsOffsetWildcard(instWildcardDesc.mOffset - offset) == true)
+            if (instWildcardDesc.mTechnique.IsOffsetWildcard(offset - instWildcardDesc.mOffset) == true)
                 return true;
         }
     }
