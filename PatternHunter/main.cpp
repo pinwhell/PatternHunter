@@ -32,7 +32,8 @@ int main(int argc, const char* argv[])
 		("f,file", "File to perform the pattern creation at", cxxopts::value<std::string>())
 		("o,offset", "File offset at which the pattern creation will be performed", cxxopts::value<uint64_t>())
 		("i,instructions", "Ammount of instruciton to process in the pattern creation", cxxopts::value<uint64_t>())
-		("v,verbose", "Show more Info", cxxopts::value<bool>()->default_value("false"));
+		("v,verbose", "Show more Info", cxxopts::value<bool>()->default_value("false"))
+		("x,force", "Disable stoping at return related instrucitons", cxxopts::value<bool>()->default_value("false"));;
 
 	auto result = options.parse(argc, argv);
 
@@ -45,6 +46,7 @@ int main(int argc, const char* argv[])
 	}
 
 	bool bVerbose = result["verbose"].as<bool>();
+	bool bForce = result["force"].as<bool>();
 
 	std::vector<unsigned char> file;
 
@@ -119,7 +121,7 @@ int main(int argc, const char* argv[])
 
 	totalPatternSize += pInst->size;
 
-	return binCapstoneHelper->IsIntructionReturnRelated(pInst) == false;
+	return binCapstoneHelper->IsIntructionReturnRelated(pInst) == false || bForce;
 		});
 
 	if(bVerbose)

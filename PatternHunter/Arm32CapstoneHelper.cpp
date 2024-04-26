@@ -151,6 +151,7 @@ bool Arm32CapstoneHelper::IsIntructionPrologRelated(cs_insn* pInst)
 #define MKWILDCARD(type, ...) {type, { __VA_ARGS__ }},
 
 std::unordered_map<arm_insn, WildcardTechnique> gImmDispWilcarding{
+    MKWILDCARD(ARM_INS_ADD, 0)
     MKWILDCARD(ARM_INS_SUB, 0)
 
     MKWILDCARD(ARM_INS_MOV, 0, 1, 2)
@@ -169,6 +170,7 @@ std::unordered_map<arm_insn, WildcardTechnique> gImmDispWilcarding{
 };
 
 std::unordered_map<arm_insn, WildcardTechnique> gRegWilcarding{
+    MKWILDCARD(ARM_INS_ADD, 1, 2)
     MKWILDCARD(ARM_INS_SUB, 1, 2)
 
     MKWILDCARD(ARM_INS_MOV, 1)
