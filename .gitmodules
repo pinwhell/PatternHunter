@@ -1,0 +1,9 @@
+[submodule "vendor/capstone"]
+	path = vendor/capstone
+	url = https://github.com/capstone-engine/capstone
+[submodule "vendor/cxxopts"]
+	path = vendor/cxxopts
+	url = https://github.com/jarro2783/cxxopts
+[submodule "vendor/TBS"]
+	path = vendor/TBS
+	url = https://github.com/pinwhell/TBS
