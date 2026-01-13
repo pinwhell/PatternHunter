@@ -61,7 +61,7 @@ int main(int argc, const char* argv[])
 	if (bIsVA)
 	{
 		offset = ELFHelper::GetFileOffset(file.data(), offset);
-		if (offset == -1)
+		if (offset == (uint64_t)-1)
 		{
 			std::cout << "Invalid Virtual Address or unable to convert to File Offset" << std::endl;
 			return 1;

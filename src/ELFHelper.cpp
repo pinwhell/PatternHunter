@@ -50,7 +50,7 @@ uint64_t ELFHelper::GetFileOffset(unsigned char* base, uint64_t va)
 		{
 			if (pHdrs[i].p_type == PT_LOAD)
 			{
-				if (va >= pHdrs[i].p_vaddr && va < (pHdrs[i].p_vaddr + pHdrs[i].p_memsz))
+				if (va >= pHdrs[i].p_vaddr && va < (pHdrs[i].p_vaddr + pHdrs[i].p_filesz))
 				{
 					return va - pHdrs[i].p_vaddr + pHdrs[i].p_offset;
 				}
@@ -66,7 +66,7 @@ uint64_t ELFHelper::GetFileOffset(unsigned char* base, uint64_t va)
 		{
 			if (pHdrs[i].p_type == PT_LOAD)
 			{
-				if (va >= pHdrs[i].p_vaddr && va < (pHdrs[i].p_vaddr + pHdrs[i].p_memsz))
+				if (va >= pHdrs[i].p_vaddr && va < (pHdrs[i].p_vaddr + pHdrs[i].p_filesz))
 				{
 					return va - pHdrs[i].p_vaddr + pHdrs[i].p_offset;
 				}
