@@ -1,5 +1,5 @@
 #include "ELF32BinaryFormat.h"
-#include "Arm32CapstoneHelperFactory.h"
+#include "Arch/ARM32/Arm32CapstoneHelperFactory.h"
 
 bool ELF32BinaryFormat::MakeCapstoneHelper(CapstoneHelperProvider* pProvider, ICapstoneHelper** outHelper)
 {
