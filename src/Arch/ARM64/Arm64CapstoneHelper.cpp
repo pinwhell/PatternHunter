@@ -190,14 +190,35 @@ bool Arm64CapstoneHelper::ContainsNonSolidOp(cs_insn* pInst, uint32_t* outResult
         return true; 
     }
 
-    // Unconditional Branches (B, BL, CBZ, CBNZ)
-    if (pInst->id == AArch64_INS_B || pInst->id == AArch64_INS_BL || pInst->id == AArch64_INS_CBNZ || pInst->id == AArch64_INS_CBZ)
+    // Unconditional Branches (B, BL)
+    // Offset is imm26 (bits 0-25).
+    // This bleeds into Byte 3 (bits 24-25).
+    // Changing offset can change Byte 3 (e.g., 0x94 vs 0x97).
+    // Must wildcard Bytes 0-3 to be robust.
+    if ((pInst->id == AArch64_INS_B || pInst->id == AArch64_INS_BL) && 
+        a64->op_count > 0 && 
+        a64->operands[0].type == AArch64_OP_IMM)
+    {
+         if (pInstructionWildcard)
+         {
+              pInstructionWildcard->mTechnique.mWildcardedOffsets.clear();
+              pInstructionWildcard->mSize = pInst->size;
+              for(int k=0; k<4; k++) pInstructionWildcard->mTechnique.mWildcardedOffsets.insert(k);
+         }
+         if(outResult) *outResult = NS_IMMDISP;
+         return true;
+    }
+
+    // Compare & Branch (CBZ, CBNZ)
+    // Offset is imm19 (bits 5-23).
+    // Fits strictly in Bytes 0, 1, 2. Byte 3 is safe Opcode.
+    // Wildcard Bytes 0-2.
+    if (pInst->id == AArch64_INS_CBNZ || pInst->id == AArch64_INS_CBZ)
     {
         for (int i = 0; i < a64->op_count; i++)
         {
             if (a64->operands[i].type == AArch64_OP_IMM)
             {
-                 // Wildcard Bytes 0-2 (Offset). Preserves Opcode (Byte 3).
                  if (pInstructionWildcard)
                  {
                       pInstructionWildcard->mTechnique.mWildcardedOffsets.clear();
@@ -212,12 +233,30 @@ bool Arm64CapstoneHelper::ContainsNonSolidOp(cs_insn* pInst, uint32_t* outResult
         }
     }
 
-    // LDR/STR with immediate offsets (Label access)
-    if (pInst->id == AArch64_INS_LDR)
+    // LDR/STR with immediate offsets (Label access or PAGEOFF)
+    // Relocation affects Offset (Bytes 1-2).
+    // Register reallocation affects Base Reg (Bytes 0-1).
+    // Example: STRB W8, [X20, #imm] vs STRB W8, [X19, #imm2]
+    // To match consistently, we must wildcard Bytes 0, 1, and 2.
+    // This preserves Opcode (Byte 3).
+    // Includes LDR, LDRB, LDRH, LDRSW, STR, STRB, STRH.
+    if ((pInst->id == AArch64_INS_LDR || pInst->id == AArch64_INS_LDRB || pInst->id == AArch64_INS_LDRH || pInst->id == AArch64_INS_LDRSW ||
+         pInst->id == AArch64_INS_STR || pInst->id == AArch64_INS_STRB || pInst->id == AArch64_INS_STRH) &&
+         a64->op_count > 0)
     {
-         if(a64->op_count == 2 && a64->operands[1].type == AArch64_OP_IMM)
+         // Find if any operand is IMM (offset)
+         bool hasImmOffset = false;
+         for (int i = 0; i < a64->op_count; i++) 
          {
-             // Wildcard offset (Bytes 0-2).
+             // Capstone might show LDR x0, [x1, #imm] as MEM with disp.
+             // OR LDR x0, #imm (Literal).
+             if (a64->operands[i].type == AArch64_OP_MEM && a64->operands[i].mem.disp != 0) hasImmOffset = true;
+             if (a64->operands[i].type == AArch64_OP_IMM) hasImmOffset = true;
+         }
+
+         if(hasImmOffset)
+         {
+             // Wildcard Bytes 0-2.
              if (pInstructionWildcard)
              {
                   pInstructionWildcard->mTechnique.mWildcardedOffsets.clear();
@@ -260,6 +299,44 @@ bool Arm64CapstoneHelper::ContainsNonSolidOp(cs_insn* pInst, uint32_t* outResult
               pInstructionWildcard->mTechnique.mWildcardedOffsets.insert(0);
               pInstructionWildcard->mTechnique.mWildcardedOffsets.insert(1);
               pInstructionWildcard->mTechnique.mWildcardedOffsets.insert(2);
+         }
+         if(outResult) *outResult = NS_IMMDISP;
+         return true;
+    }
+
+    // Arithmetic with Immediate (ADD/SUB)
+    // Used in ADRL (ADRP + ADD) and likely address calculations.
+    // Imm12 (bits 10-21) spans Byte 1 and Byte 2.
+    // We wildcard Bytes 1 and 2 Usefully preserves Byte 0 (Rd + Rn low) and Byte 3 (Opcode).
+    if ((pInst->id == AArch64_INS_ADD || pInst->id == AArch64_INS_SUB) &&
+         a64->op_count > 0 && a64->operands[a64->op_count - 1].type == AArch64_OP_IMM)
+    {
+         if (pInstructionWildcard)
+         {
+              pInstructionWildcard->mTechnique.mWildcardedOffsets.clear();
+              pInstructionWildcard->mSize = pInst->size;
+              pInstructionWildcard->mTechnique.mWildcardedOffsets.insert(1);
+              pInstructionWildcard->mTechnique.mWildcardedOffsets.insert(2);
+         }
+         if(outResult) *outResult = NS_IMMDISP;
+         return true;
+    }
+
+    // MOV with Immediate (alias for MOVZ, MOVN, ORR)
+    // Compiler flips between MOVZ (0x52...) and ORR (0x32...) based on optimization.
+    // Example: MOV W8, #1 can be 28 00 80 52 (MOVZ) or E8 03 00 32 (ORR).
+    // These have completely different opcodes. To match both, we must wildcard the whole instruction.
+    // This is "noisy" but necessary if we want to validly match "Set Register to Constant" across builds.
+    if ((pInst->id == AArch64_INS_MOV || pInst->id == AArch64_INS_MOVZ || pInst->id == AArch64_INS_MOVN || pInst->id == AArch64_INS_ORR) && 
+        a64->op_count > 0 && 
+        a64->operands[a64->op_count - 1].type == AArch64_OP_IMM)
+    {
+         if (pInstructionWildcard)
+         {
+              pInstructionWildcard->mTechnique.mWildcardedOffsets.clear();
+              pInstructionWildcard->mSize = pInst->size;
+              // Wildcard EVERYTHING (Bytes 0-3) because Opcode changes drastically (MOVZ vs ORR).
+              for(int k=0; k<4; k++) pInstructionWildcard->mTechnique.mWildcardedOffsets.insert(k);
          }
          if(outResult) *outResult = NS_IMMDISP;
          return true;
