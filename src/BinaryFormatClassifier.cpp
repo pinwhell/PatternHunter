@@ -1,5 +1,6 @@
 #include "BinaryFormatClassifier.h"
 #include "ELF32BinaryFormat.h"
+#include "ELF64BinaryFormat.h"
 #include "UnknownBinaryFormat.h"
 #include "ELFHelper.h"
 
@@ -9,6 +10,8 @@ bool BinaryFormatClassifier::Classify(unsigned char* bin, std::unique_ptr<IBinar
     {
         if (ELFHelper::Is32(bin))
             outBinFormat = std::make_unique<ELF32BinaryFormat>();
+        else if(ELFHelper::Is64(bin))
+             outBinFormat = std::make_unique<ELF64BinaryFormat>();
     }
 
     if (!(outBinFormat)) //if we wasnt able to classify it
@@ -33,6 +36,8 @@ bool BinaryFormatClassifier::Classify(std::string& binFormat, std::unique_ptr<IB
 
     if (binFormat == "elf32")
         outBinFormat = std::make_unique<ELF32BinaryFormat>();
+    else if (binFormat == "elf64")
+        outBinFormat = std::make_unique<ELF64BinaryFormat>();
 
     outBinFormat = std::make_unique<UnknownBinaryFormat>();
 
