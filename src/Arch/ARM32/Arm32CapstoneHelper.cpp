@@ -1,5 +1,5 @@
-#include "Arm32CapstoneHelper.h"
-#include "CapstoneAux.h"
+#include "Arch/ARM32/Arm32CapstoneHelper.h"
+#include "Arch/ARM32/Arm32CapstoneAux.h"
 
 Arm32CapstoneHelper::Arm32CapstoneHelper()
 {
