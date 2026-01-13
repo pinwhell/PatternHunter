@@ -3,6 +3,7 @@
 #include <cxxopts.hpp>
 #include "BinaryFormatClassifier.h"
 #include "FileHelper.h"
+#include "ELFHelper.h"
 #include <iomanip>
 #include <sstream>
 #include <TBS.hpp>
@@ -32,7 +33,8 @@ int main(int argc, const char* argv[])
 		("o,offset", "File offset at which the pattern creation will be performed", cxxopts::value<uint64_t>())
 		("i,instructions", "Ammount of instruciton to process in the pattern creation", cxxopts::value<uint64_t>())
 		("v,verbose", "Show more Info", cxxopts::value<bool>()->default_value("false"))
-		("x,force", "Disable stoping at return related instrucitons", cxxopts::value<bool>()->default_value("false"));;
+		("x,force", "Disable stoping at return related instrucitons", cxxopts::value<bool>()->default_value("false"))
+		("a,va", "Treat offset as Virtual Address", cxxopts::value<bool>()->default_value("false"));
 
 	auto result = options.parse(argc, argv);
 
@@ -46,6 +48,7 @@ int main(int argc, const char* argv[])
 
 	bool bVerbose = result["verbose"].as<bool>();
 	bool bForce = result["force"].as<bool>();
+	bool bIsVA = result["va"].as<bool>();
 
 	std::vector<unsigned char> file;
 
@@ -54,6 +57,17 @@ int main(int argc, const char* argv[])
 
 	uint64_t offset = result["offset"].as<uint64_t>();
 	uint64_t instructions = result["instructions"].as<uint64_t>();
+
+	if (bIsVA)
+	{
+		offset = ELFHelper::GetFileOffset(file.data(), offset);
+		if (offset == -1)
+		{
+			std::cout << "Invalid Virtual Address or unable to convert to File Offset" << std::endl;
+			return 1;
+		}
+		if (bVerbose) std::cout << "Converted VA to Offset: 0x" << std::hex << offset << std::endl;
+	}
 
 	if (offset > file.size())
 	{
