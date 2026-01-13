@@ -1,4 +1,4 @@
-#include "CapstoneAux.h"
+#include "Arch/ARM32/Arm32CapstoneAux.h"
 
 #include <capstone/capstone.h>
 
@@ -62,22 +62,4 @@ bool ArmCapstoneAux::HeuristicReturn(cs_insn* pInst)
 uintptr_t ArmCapstoneAux::ResolvePCRelative(unsigned char* pInst, uintptr_t pcOffset)
 {
     return *(uintptr_t*)(pInst + 8 + pcOffset);
-}
-
-uint16_t Arm64CapstoneAux::GetLValueRegType(cs_insn* pInst)
-{
-    return pInst->detail->aarch64.operands[0].reg;
-}
-
-uint16_t Arm64CapstoneAux::GetRValueRegType(cs_insn* pInst)
-{
-    return pInst->detail->aarch64.operands[1].reg;
-}
-
-bool Arm64CapstoneAux::HeuristicReturn(cs_insn* pInst)
-{
-    if (pInst->id == AArch64_INS_RET)
-        return true;
-
-    return false;
 }

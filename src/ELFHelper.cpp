@@ -20,3 +20,15 @@ bool ELFHelper::Is32(unsigned char* _base)
 
 	return pElfBase->e_ident[EI_CLASS] == ELFCLASS32;
 }
+
+bool ELFHelper::Is64(unsigned char* _base)
+{
+	union {
+		Elf64_Ehdr* pElfBase;
+		unsigned char* base;
+	};
+
+	base = _base;
+
+	return pElfBase->e_ident[EI_CLASS] == ELFCLASS64;
+}
